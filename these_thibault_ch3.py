@@ -1,5 +1,6 @@
 from pysonnet import make_linear_scan
 import numpy as np
+import matplotlib.pylab as plt
 
 
 #  We define the interval over which to scan the memrbane height 
@@ -10,8 +11,10 @@ hs = np.logspace(-3, 3, 43)
 
 plt.figure()
 f0s = []
+filename=r'C:\Users\Thibault\Documents\phd\sonnet\pysonnet test\B2_OMIT.son'
 for h in hs:
-    x, y = make_linear_scan("A1_OMIT_net_further.son", 4.5 , 6., 1001, h=h)
+    #x, y = make_linear_scan("A1_OMIT_net_further.son", 4.5 , 6., 1001, h=h)
+    x, y = make_linear_scan(filename, 0.1, 20., 20001, h=h)
     plt.plot(x[:-1], np.diff(np.angle(y[:,1,0])))
     f0s.append(x[np.argmax(np.diff(np.angle(y[:,1,0])))])
 
@@ -24,23 +27,24 @@ plt.semilogx(hs, f0s, 'o-')
 plt.show()
 #%%
 # Now, we will try to reproduce these results by looking at the impedance matrix of the capacitor and inductor subsystems only.
-# One gotcha, ni order to retrieve the asme frequencies, is to make sure both 
+# One gotcha, in order to retrieve the same frequencies, is to make sure both 
 # subprojects have the "not de-embeded" option selected in the "output file" menu.
 # Also, make sure the output file is configured to Z, real-imag
 
 xs = []
 ys = []
-
+filename_1=r'C:\Users\Thibault\Documents\phd\sonnet\pysonnet test\B2_OMIT_s1.son'
+filename_2=r'C:\Users\Thibault\Documents\phd\sonnet\pysonnet test\B2_OMIT_s2.son'
 zc = np.zeros((len(hs), 2, 2), dtype=complex)
 zi = np.zeros((len(hs), 4, 4), dtype=complex)
 
 for i, h in enumerate(hs):
-    x, y = make_linear_scan("A1_OMIT_net_s2.son", 5.7, 5.7, 1, h=h) # capacitance
+    x, y = make_linear_scan(filename_2, 5.7, 5.7, 1, h=h) # capacitance
     # only calculate at 6 GHz
     for index in range(len(x)): # careful, all existing data are returned--> postselect
         if x[index]==5.7:
             zc[i] = y[index]
-    x, y = make_linear_scan("A1_OMIT_net_s1_further.son", 5.7, 5.7, 1, h=h) # inductance
+    x, y = make_linear_scan(filename_1, 5.7, 5.7, 1, h=h) # inductance
     for index in range(len(x)): # postselect frequency
         if x[index]==5.7:
             zi[i] = y[index]
@@ -99,7 +103,7 @@ ax2.tick_params(axis='y', labelcolor=color)
 
 ax3 = plt.subplot(212, sharex=ax1)
 
-lc_freqs = 1e-9/(2*np.pi*sqrt(inductance*1e-9*capas*1e-12))
+lc_freqs = 1e-9/(2*np.pi*np.sqrt(inductance*1e-9*capas*1e-12))
 
 plt.semilogx(hs, lc_freqs, color='red')
 plt.ylabel("Resonance freq. (GHz)")
@@ -132,20 +136,20 @@ tb = 2*eps_sin/(1 + eps_sin)
 a = 0.5e-6
 thick = 200e-9
 
-expo = exp(-2*thick*pi/a)
+expo = np.exp(-2*thick*np.pi/a)
 r_membrane = r + t*tb*rb*expo/(1 + rb**2*expo)
 
 STOP = -15
 
 h = np.logspace(-3,3,43)*1e-6
 #h = h[:STOP]
-expoh = exp(-2*h*pi/a)
+expoh = np.exp(-2*h*np.pi/a)
 membrane_area = 45e-6*80e-6
 Cinf = epsilon_0*(1+eps_si)/(2*a)*membrane_area
 C = Cinf*(1 - r_si*r_membrane*expoh)/(1 + r_membrane*expoh)
 
 def freq(L, C0):
-    return 1/(2*np.pi*sqrt(L*(C + C0)))
+    return 1/(2*np.pi*np.sqrt(L*(C + C0)))
 
 def to_minimize_freq(args):
     L, C0 = args
@@ -159,7 +163,7 @@ def to_minimize_capa(args):
 pars, flag = leastsq(to_minimize_capa, [1e-9])
 
 ax1.semilogx(h*1e6, C*1e12, '--', color='red')
-ax3.semilogy(h*1e6, 1.e-9/(2*pi*np.sqrt(inductance*1e-9*C)), '--', color='red')
+ax3.semilogy(h*1e6, 1.e-9/(2*np.pi*np.sqrt(inductance*1e-9*C)), '--', color='red')
 
 ax3.set_yticks([4.5, 5.0, 5.5])
 ax3.set_yticklabels(['4.5', '5.0', '5.5'])

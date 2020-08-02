@@ -15,7 +15,7 @@ from 6. to 7. GHz by steps of .1 GHz (irrespective of the large number of points
 on the parent scan)
 """
 
-import os
+import os, sys
 from numpy import linspace
 import numpy as np
 from subprocess import call, SubprocessError, Popen
@@ -104,6 +104,20 @@ def make_linear_scan(project, start, stop, npoints, **params):
     # The sonnet project should define a "spreadsheat type output_file" (analysis->output_file)
     # The name should simply be project_name.csv in the project folder
     # if params['two_ports']:
+    dirname= os.path.dirname(project)
+    previous_dir=os.getcwd()
+    if dirname!='':
+        os.chdir(dirname)
+    project=os.path.split(project)[-1]
+    with open(project, 'r') as f:
+        found=False
+        for line in f.readlines():
+            if found:
+                fileout=line
+                break
+            elif line.startswith('FILEOUT'):
+                found=True
+        print(fileout[fileout.find('$BASENAME')+10:fileout.find('$BASENAME')+13])
     resfile = project.replace('.son',
                               '.s2p')  # '.csv' #if working with two ports, use '.s2p' instead
     # else:
@@ -131,12 +145,14 @@ def make_linear_scan(project, start, stop, npoints, **params):
     error = False
     with open('err.txt', 'w') as err:
         try:
-            # C:\\Program Files (x86)\\Sonnet Software\\13.52\\bin_x64\\
             p = Popen(
-                ["em.exe", "-ParamFile", 'params.txt', project, "freqs.eff"],
+                ["em.exe", "-ParamFile", 'params.txt', project, 'freqs.eff'],
                 stderr=err)
             error = p.wait()
         except SubprocessError as e:
+            print("Oops!", sys.exc_info()[0], "occurred.")
+            print(os.listdir(os.getcwd()))
+            print(project)
             error = True
         finally:
             print("terminate", error)
@@ -144,5 +160,10 @@ def make_linear_scan(project, start, stop, npoints, **params):
     if error:  # Output the console error if any
         with open('err.txt', 'r') as err:
             raise SubprocessError(err.read())
+    res=read_output(resfile)
+    os.chdir(previous_dir)
+    return res
 
-    return read_output(resfile)
+if __name__=='__main__':
+    filename=r'C:\Users\Thibault\Documents\phd\sonnet\pysonnet test\pads.son'
+    res=make_linear_scan(filename, 1,10,100,h=0.1)
