@@ -18,7 +18,7 @@ on the parent scan)
 import os, sys
 from numpy import linspace
 import numpy as np
-from subprocess import call, SubprocessError, Popen
+from subprocess import SubprocessError, Popen
 
 def read_matrix(file):
     """
@@ -82,14 +82,27 @@ def read_output(filename):
             except EOFError:
                 return np.array(freqs), np.array(mats)
 
+def get_output_config(filename): #Search if we are dealing with a .s2p or .s4p output
+    with open(filename, 'r') as f:
+        found=False
+        for line in f.readlines():
+            if found:
+                fileout=line
+                break
+            elif line.startswith('FILEOUT'):
+                found=True
+    return fileout[fileout.find('$BASENAME')+9:fileout.find('$BASENAME')+13]
 
-def make_linear_scan(project, start, stop, npoints, **params):
+def make_linear_scan(*args, **params):
     """
     Calls sonnet solver on the required project and performs a linear frequency scan
     (an external frequency file is used for more flexibility). Extra parameters given
     as keyword arguments are overwritten in the project (using also an external parameter file).
-
-    Example: make_linear_scan(PROJECT, 6., 7., 10000, altitude=0.15)
+    
+    either specify the start, stop and Npoint frequency, either specify the list of freqs 
+    
+    Example: -make_linear_scan(PROJECT, 6., 7., 10000, altitude=0.15)
+             -make_linear_scan(PROJECT, [6,6.4,6.8], altitude=0.15)
 
     GOTCHAS:
     - If the project requires subprojects, uncheck the "hierarchy scan" in analysis->output_file
@@ -104,29 +117,26 @@ def make_linear_scan(project, start, stop, npoints, **params):
     # The sonnet project should define a "spreadsheat type output_file" (analysis->output_file)
     # The name should simply be project_name.csv in the project folder
     # if params['two_ports']:
+    if len(args)==4:
+        project, start, stop, npoints=args
+        points = linspace(start, stop, npoints)
+    elif len(args)==2:
+        project, points=args
     dirname= os.path.dirname(project)
     previous_dir=os.getcwd()
     if dirname!='':
         os.chdir(dirname)
     project=os.path.split(project)[-1]
-    with open(project, 'r') as f:
-        found=False
-        for line in f.readlines():
-            if found:
-                fileout=line
-                break
-            elif line.startswith('FILEOUT'):
-                found=True
-        print(fileout[fileout.find('$BASENAME')+10:fileout.find('$BASENAME')+13])
+    extension=get_output_config(project)
     resfile = project.replace('.son',
-                              '.s2p')  # '.csv' #if working with two ports, use '.s2p' instead
+                              extension)  # '.csv' #if working with two ports, use '.s2p' instead
     # else:
     #    resfile = project.replace('.son', '.s1p')
     if os.path.exists(resfile):
         os.remove(resfile)
 
     # Define the frequencies of the scan by creating a file freqs.eff in the current directory
-    points = linspace(start, stop, npoints)
+    
     with open('freqs.eff', 'w') as f:
         f.write('FREQUNIT GHZ\n')
         for point in points:
@@ -141,7 +151,6 @@ def make_linear_scan(project, start, stop, npoints, **params):
     # - The required project
     # - The external frequency file
     # - The parameters to overwrite
-    from subprocess import check_call, check_output
     error = False
     with open('err.txt', 'w') as err:
         try:
@@ -163,7 +172,3 @@ def make_linear_scan(project, start, stop, npoints, **params):
     res=read_output(resfile)
     os.chdir(previous_dir)
     return res
-
-if __name__=='__main__':
-    filename=r'C:\Users\Thibault\Documents\phd\sonnet\pysonnet test\pads.son'
-    res=make_linear_scan(filename, 1,10,100,h=0.1)
