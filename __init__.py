@@ -19,6 +19,7 @@ import os
 from numpy import linspace
 import numpy as np
 from subprocess import call, SubprocessError, Popen
+from glob import glob
 
 def read_matrix(file):
     """
@@ -82,6 +83,27 @@ def read_output(filename):
             except EOFError:
                 return np.array(freqs), np.array(mats)
 
+def filter_output(x, y, points):
+    """
+    remove points in x, y that are absent in points.
+    Assumes all points are in x
+    """
+    
+    filtered_x = []
+    filtered_y = []
+    
+    index = 0
+    next_freq = points[index]
+    for xx, yy in zip(x,y):
+        if np.abs(xx - next_freq)<1e-8:
+            filtered_x.append(xx)
+            filtered_y.append(yy)
+            index+=1
+            if index>=len(points):
+                break
+            else:
+                next_freq = points[index]
+    return np.array(filtered_x), np.array(filtered_y)
 
 def make_linear_scan(project, start, stop, npoints, **params):
     """
@@ -104,12 +126,14 @@ def make_linear_scan(project, start, stop, npoints, **params):
     # The sonnet project should define a "spreadsheat type output_file" (analysis->output_file)
     # The name should simply be project_name.csv in the project folder
     # if params['two_ports']:
-    resfile = project.replace('.son',
-                              '.s2p')  # '.csv' #if working with two ports, use '.s2p' instead
+    resfiles = (project.replace('.son', '.s1p'), project.replace('.son', '.s2p'))
+    #glob(project.replace('.son', '.s*p'))[0]  # '.csv' #if working with two ports, use '.s2p' instead
     # else:
     #    resfile = project.replace('.son', '.s1p')
-    if os.path.exists(resfile):
-        os.remove(resfile)
+   
+    for resfile in resfiles:
+        if os.path.exists(resfile):
+            os.remove(resfile)
 
     # Define the frequencies of the scan by creating a file freqs.eff in the current directory
     points = linspace(start, stop, npoints)
@@ -145,4 +169,8 @@ def make_linear_scan(project, start, stop, npoints, **params):
         with open('err.txt', 'r') as err:
             raise SubprocessError(err.read())
 
-    return read_output(resfile)
+
+    resfile = glob(project.replace('.son', '.s*p'))[0]
+    x, y = read_output(resfile)
+    return filter_output(x, y, points)
+    

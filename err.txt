@@ -1,0 +1,7 @@
+
+      Sonnet Error EG4670:
+      Unable to Open File.
+      File name :
+      "C:\Users\Samuel\Documents\GitHub\pysonnet\A1_OMIT_net.son".
+      Date: Fri Jul 31 18:31:56 2020
+
