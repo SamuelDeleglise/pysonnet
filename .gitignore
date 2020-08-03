@@ -18,6 +18,12 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+*.pyc
+*.son
+*.s*p
+*.npy
+*.h5
+*.bck
 # =========================
 # Operating System Files
 # =========================
